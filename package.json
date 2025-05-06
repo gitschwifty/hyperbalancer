@@ -1,0 +1,30 @@
+{
+  "name": "hyperbalancer",
+  "version": "0.1.0",
+  "description": "Auto-rebalancer for concentrated liquidity positions",
+  "main": "dist/clmmReader.js",
+  "scripts": {
+    "start": "ts-node clmmReader.ts",
+    "build": "tsc",
+    "dev": "ts-node-dev --respawn clmmReader.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "defi",
+    "ethereum",
+    "concentrated-liquidity",
+    "rebalancer"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.0.3",
+    "ethers": "^6.6.4"
+  },
+  "devDependencies": {
+    "@types/node": "^18.15.11",
+    "ts-node": "^10.9.1",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.0.4"
+  }
+}
