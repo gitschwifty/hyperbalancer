@@ -37,15 +37,13 @@ const poolABI = [
   "function feeGrowthGlobal1X128() view returns (uint256)",
 ];
 
-// Enum for tick spacing by fee tier
 enum FeeTier {
-  LOWEST = 100, // 0.01%
-  LOW = 500, // 0.05%
-  MEDIUM = 3000, // 0.3%
-  HIGH = 10000, // 1%
+  LOWEST = 100,
+  LOW = 500,
+  MEDIUM = 3000,
+  HIGH = 10000,
 }
 
-// Map of fee tiers to their tick spacing
 const TICK_SPACINGS: { [key in FeeTier]: number } = {
   [FeeTier.LOWEST]: 1,
   [FeeTier.LOW]: 10,
@@ -64,20 +62,15 @@ export class HyperSwapManager extends CLMM {
   constructor(rpcUrl: string, signer?: ethers.Signer) {
     super(rpcUrl, signer);
 
-    // Create position manager contract instance
     this.positionManager = new ethers.Contract(
       hyperswapPositionManagerAddress,
       positionManagerABI,
       signer || this.provider,
     );
 
-    // Get factory address (will be initialized later)
     this.factoryAddress = "";
   }
 
-  /**
-   * Initialize the factory address
-   */
   private async initializeFactory(): Promise<void> {
     if (!this.factoryAddress) {
       this.factoryAddress = await this.positionManager.factory();
@@ -89,10 +82,6 @@ export class HyperSwapManager extends CLMM {
     }
   }
 
-  /**
-   * Get token info
-   * @param tokenAddress Token contract address
-   */
   private async getTokenInfo(tokenAddress: string): Promise<TokenInfo> {
     const token = new ethers.Contract(tokenAddress, erc20ABI, this.provider);
 
@@ -108,10 +97,6 @@ export class HyperSwapManager extends CLMM {
     };
   }
 
-  /**
-   * Get all positions for a wallet address
-   * @param walletAddress Wallet address
-   */
   async getPositionsForWallet(walletAddress: string): Promise<PositionInfo[]> {
     const balance = await this.positionManager.balanceOf(walletAddress);
     const positions: PositionInfo[] = [];
@@ -135,14 +120,9 @@ export class HyperSwapManager extends CLMM {
     return positions;
   }
 
-  /**
-   * Get position details
-   * @param positionId Position token ID
-   */
   async getPosition(positionId: string): Promise<PositionInfo> {
     await this.initializeFactory();
 
-    // Get position data
     const positionData = await this.positionManager.positions(positionId);
 
     const poolAddress = await this.factoryContract.getPool(
@@ -151,24 +131,22 @@ export class HyperSwapManager extends CLMM {
       positionData.fee,
     );
 
-    // Get pool contract
+    // only need this for current tick, maybe shouldn't be in getPosition but then
+    // have to drop currentTick from pos type (or opt it)
     const poolContract = new ethers.Contract(
       poolAddress,
       poolABI,
       this.provider,
     );
 
-    // Get current tick
     const slot0 = await poolContract.slot0();
     const currentTick = Number(slot0.tick);
 
-    // Get token information
     const [token0Info, token1Info] = await Promise.all([
       this.getTokenInfo(positionData.token0),
       this.getTokenInfo(positionData.token1),
     ]);
 
-    // Check if position is in range
     const inRange =
       currentTick >= Number(positionData.tickLower) &&
       currentTick <= Number(positionData.tickUpper);
@@ -190,12 +168,6 @@ export class HyperSwapManager extends CLMM {
     };
   }
 
-  /**
-   * Get pool data
-   * @param token0 Token0 address
-   * @param token1 Token1 address
-   * @param fee Fee tier in basis points
-   */
   async getPoolData(
     token0: string,
     token1: string,
@@ -209,14 +181,12 @@ export class HyperSwapManager extends CLMM {
       throw new Error("Pool does not exist");
     }
 
-    // Create pool contract
     const poolContract = new ethers.Contract(
       poolAddress,
       poolABI,
       this.provider,
     );
 
-    // Get pool data
     const [
       slot0,
       liquidity,
@@ -235,7 +205,6 @@ export class HyperSwapManager extends CLMM {
       poolContract.fee(),
     ]);
 
-    // Get token information
     const [token0Info, token1Info] = await Promise.all([
       this.getTokenInfo(actualToken0),
       this.getTokenInfo(actualToken1),
@@ -254,10 +223,6 @@ export class HyperSwapManager extends CLMM {
     };
   }
 
-  /**
-   * Add liquidity to create a new position
-   * @param options Add liquidity options
-   */
   async addLiquidity(
     options: AddLiquidityOptions,
   ): Promise<ethers.TransactionResponse> {
@@ -265,7 +230,6 @@ export class HyperSwapManager extends CLMM {
       throw new Error("Signer required for transactions");
     }
 
-    // Create position parameters
     const params = {
       token0: options.token0,
       token1: options.token1,
@@ -280,7 +244,6 @@ export class HyperSwapManager extends CLMM {
       deadline: options.deadline,
     };
 
-    // Call the mint function
     return await this.positionManager.mint(params);
   }
 
