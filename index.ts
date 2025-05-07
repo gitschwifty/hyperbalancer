@@ -22,14 +22,16 @@ async function main() {
 
   try {
     const positions = await reader.getPositionsForWallet(walletAddress);
-    await positions.forEach(async (pos) => {
+    console.log('got positions')
+
+    for (const pos of positions) {
       const pool = await reader.getPoolData(
         pos.token0.address,
         pos.token1.address,
         pos.fee,
       );
       console.log(prettyPrintPosition(pos, pool));
-    });
+    }
 
     const pos = await reader.getPosition("2089");
     const poolData = await reader.getPoolData(
