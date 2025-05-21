@@ -6,6 +6,10 @@ export interface TokenInfo {
   decimals: number;
 }
 
+export interface TokenAmount extends TokenInfo {
+  amount: BigNumberish;
+}
+
 export interface PositionInfo {
   id: string;
   token0: TokenInfo;
@@ -15,8 +19,8 @@ export interface PositionInfo {
   tickUpper: number;
   currentTick: number;
   liquidity: string;
-  feeGrowthInside0x128: BigNumberish;
-  feeGrowthInside1x128: BigNumberish;
+  feeGrowthInside0LastX128: BigNumberish;
+  feeGrowthInside1LastX128: BigNumberish;
   tokensOwed0: string;
   tokensOwed1: string;
   inRange: boolean;
@@ -30,8 +34,8 @@ export interface PoolData {
   sqrtPriceX96: BigNumberish;
   tick: number;
   liquidity: string;
-  feeGrowthGlobal0x128: BigNumberish;
-  feeGrowthGlobal1x128: BigNumberish;
+  feeGrowthGlobal0X128: BigNumberish;
+  feeGrowthGlobal1X128: BigNumberish;
 }
 
 export interface AddLiquidityOptions {

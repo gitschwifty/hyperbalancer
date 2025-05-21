@@ -4,6 +4,10 @@ import { calculateOptimalRange, prettyPrintPosition } from "./utils";
 
 dotenv.config();
 
+async function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function main() {
   const rpcUrl = process.env.RPC_URL;
   const positionManagerAddress = process.env.POSITION_MANAGER_ADDRESS;
@@ -22,37 +26,32 @@ async function main() {
 
   try {
     const positions = await reader.getPositionsForWallet(walletAddress);
-    console.log('got positions')
 
-    for (const pos of positions) {
-      const pool = await reader.getPoolData(
-        pos.token0.address,
-        pos.token1.address,
-        pos.fee,
-      );
-      console.log(prettyPrintPosition(pos, pool));
+    while (true) {
+      for (const p of positions) {
+        const pos = await reader.getPosition(p.id);
+        const pool = await reader.getPoolData(
+          pos.token0.address,
+          pos.token1.address,
+          pos.fee,
+        );
+        const fees = await reader.calculateUncollectedFees(pos, pool);
+        console.log(
+          prettyPrintPosition(pos, pool, fees.token0Fees, fees.token1Fees),
+        );
+
+        const tickSpacing = await reader.getTickSpacingForFee(pos.fee);
+        console.log("Tick Spacing for pool:", tickSpacing);
+
+        const { tickLower, tickUpper } = calculateOptimalRange(
+          pool.tick,
+          tickSpacing,
+          10,
+        );
+        console.log("Optimal Range:", { tickLower, tickUpper });
+      }
+      await sleep(60000);
     }
-
-    const pos = await reader.getPosition("2089");
-    const poolData = await reader.getPoolData(
-      pos.token0.address,
-      pos.token1.address,
-      pos.fee,
-    );
-    console.log(prettyPrintPosition(pos, poolData));
-
-    console.log("Position:", pos);
-    console.log("Pool Data:", poolData);
-
-    const tickSpacing = await reader.getTickSpacingForFee(pos.fee);
-    console.log("Tick Spacing for pool:", tickSpacing);
-
-    const { tickLower, tickUpper } = calculateOptimalRange(
-      poolData.tick,
-      tickSpacing,
-      10,
-    );
-    console.log("Optimal Range:", { tickLower, tickUpper });
   } catch (error) {
     console.error("Error:", error);
   }

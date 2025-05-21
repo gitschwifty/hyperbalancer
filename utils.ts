@@ -1,14 +1,14 @@
 import { BigNumberish } from "ethers";
-import { PoolData, PositionInfo } from "./abstractClmm";
+import { PoolData, PositionInfo, TokenAmount } from "./abstractClmm";
 
-/**
- * Create a pretty display for a position
- * @param position The position to display
- * @returns Formatted string with position details
- */
+export const Q128 = 2n ** 128n;
+export const MAX_UINT256 = 2n ** 256n - 1n;
+
 export function prettyPrintPosition(
   position: PositionInfo,
   poolData: PoolData,
+  feeZero: bigint,
+  feeOne: bigint,
 ): string {
   const currentPrice = tickToPrice(
     position.currentTick,
@@ -33,19 +33,9 @@ export function prettyPrintPosition(
 
   const rangeVisual = generateRangeVisual(rangePercentage);
 
-  const { token0Fees, token1Fees } = calculateUncollectedFees(
-    position,
-    poolData,
-  );
+  const formattedFees0 = formatTokenAmount(feeZero, position.token0.decimals);
 
-  const formattedFees0 = formatTokenAmount(
-    token0Fees,
-    position.token0.decimals,
-  );
-  const formattedFees1 = formatTokenAmount(
-    token1Fees,
-    position.token1.decimals,
-  );
+  const formattedFees1 = formatTokenAmount(feeOne, position.token1.decimals);
 
   // Format all the information
   return `
@@ -71,11 +61,6 @@ export function prettyPrintPosition(
     `;
 }
 
-/**
- * Generate a visual representation of the position's range
- * @param percentage The percentage through the range (0-100)
- * @returns A string with a visual bar representation
- */
 function generateRangeVisual(percentage: number): string {
   const width = 30; // Width of the visual bar
   const pos = Math.floor((percentage / 100) * width);
@@ -93,11 +78,6 @@ function generateRangeVisual(percentage: number): string {
   return bar;
 }
 
-/**
- * Shorten a large number for display purposes
- * @param num The number as a string or BigInt
- * @returns Shortened representation (e.g., 1.23M)
- */
 function shortenNumber(num: string | bigint): string {
   const numStr = typeof num === "bigint" ? num.toString() : num;
   const value = parseFloat(numStr);
@@ -113,57 +93,43 @@ function shortenNumber(num: string | bigint): string {
   }
 }
 
-/**
- * Format a token amount for display based on decimals
- * @param amount The token amount as a BigInt or string
- * @param decimals The number of decimals for the token
- * @param precision Optional precision for display (default: 6)
- */
 function formatTokenAmount(
   amount: bigint | string,
   decimals: number,
   precision: number = 6,
 ): string {
   const amountBigInt = typeof amount === "string" ? BigInt(amount) : amount;
+
   const divisor = BigInt(10) ** BigInt(decimals);
+
   const integerPart = amountBigInt / divisor;
 
-  // Calculate the fractional part with proper precision
-  const fractionalDivisor = BigInt(10) ** BigInt(precision);
-  const fractionalMultiplier = BigInt(10) ** BigInt(decimals - precision);
-  let fractionalPart = (amountBigInt % divisor) / fractionalMultiplier;
+  const fractionalPart = amountBigInt % divisor;
 
-  // Format with proper precision
-  const fractionalStr = fractionalPart.toString().padStart(precision, "0");
+  let fractionalStr = fractionalPart.toString();
 
-  return `${integerPart}.${fractionalStr}`;
+  fractionalStr = fractionalStr.padStart(decimals, "0");
+
+  fractionalStr = fractionalStr.substring(0, precision);
+
+  if (precision > 0) {
+    return `${integerPart}.${fractionalStr}`;
+  } else {
+    return integerPart.toString();
+  }
 }
 
-/**
- * Calculate the price from a tick value
- * @param tick The tick value
- * @param token0Decimals Decimals for token0
- * @param token1Decimals Decimals for token1
- * @returns The price of token1 in terms of token0
- */
 function tickToPrice(
   tick: number,
   token0Decimals: number,
   token1Decimals: number,
 ): number {
-  // Price = 1.0001^tick
   const price = Math.pow(1.0001, tick);
 
-  // Adjust for decimal differences
   const decimalAdjustment = Math.pow(10, token0Decimals - token1Decimals);
   return price * decimalAdjustment;
 }
 
-/**
- * Calculate the current price range for a position
- * @param position The position info object
- * @returns An object with min and max prices
- */
 export function getPositionPriceRange(position: PositionInfo): {
   minPrice: number;
   maxPrice: number;
@@ -191,11 +157,9 @@ export function priceToTick(
   token0Decimals: number,
   token1Decimals: number,
 ): number {
-  // Adjust for decimal differences
   const decimalAdjustment = Math.pow(10, token0Decimals - token1Decimals);
   const adjustedPrice = price / decimalAdjustment;
 
-  // Tick = log(price) / log(1.0001)
   return Math.floor(Math.log(adjustedPrice) / Math.log(1.0001));
 }
 
@@ -207,10 +171,8 @@ export function calculateOptimalRange(
   tickLower: number;
   tickUpper: number;
 } {
-  // Round current tick to nearest valid tick based on spacing
   const nearestValidTick = Math.round(currentTick / tickSpacing) * tickSpacing;
 
-  // Calculate range boundaries
   const halfRange = Math.floor(rangeWidth / 2);
   const tickLower = nearestValidTick - halfRange * tickSpacing;
   const tickUpper = nearestValidTick + halfRange * tickSpacing;
@@ -218,56 +180,6 @@ export function calculateOptimalRange(
   return { tickLower, tickUpper };
 }
 
-// this is possibly incorrect and/or impl specific but put it here for rn
-function calculateUncollectedFees(
-  position: {
-    liquidity: string;
-    feeGrowthInside0x128: BigNumberish;
-    feeGrowthInside1x128: BigNumberish;
-    tokensOwed0?: string;
-    tokensOwed1?: string;
-  },
-  poolData: {
-    feeGrowthGlobal0x128: BigNumberish;
-    feeGrowthGlobal1x128: BigNumberish;
-  },
-) {
-  // Convert string liquidity to BigInt
-  const liquidityBI = BigInt(position.liquidity);
-
-  // Convert fee growth values to BigInt
-  const feeGrowthGlobal0 = BigInt(poolData.feeGrowthGlobal0x128.toString());
-  const feeGrowthGlobal1 = BigInt(poolData.feeGrowthGlobal1x128.toString());
-  const feeGrowthInside0 = BigInt(position.feeGrowthInside0x128.toString());
-  const feeGrowthInside1 = BigInt(position.feeGrowthInside1x128.toString());
-
-  // Calculate fee growth delta
-  const feeGrowthDelta0 = feeGrowthGlobal0 - feeGrowthInside0;
-  const feeGrowthDelta1 = feeGrowthGlobal1 - feeGrowthInside1;
-
-  // Q128 constant for division
-  const Q128 = 2n ** 128n;
-  console.log(liquidityBI);
-  console.log(feeGrowthDelta0);
-  console.log(feeGrowthDelta1);
-
-  // Calculate uncollected fees
-  const uncollectedFees0 = (liquidityBI * feeGrowthDelta0) / Q128;
-  const uncollectedFees1 = (liquidityBI * feeGrowthDelta1) / Q128;
-
-  console.log(uncollectedFees0);
-  console.log(uncollectedFees1);
-
-  // Add existing owed fees if they exist
-  const totalUncollected0 =
-    uncollectedFees0 +
-    (position.tokensOwed0 ? BigInt(position.tokensOwed0) : 0n);
-  const totalUncollected1 =
-    uncollectedFees1 +
-    (position.tokensOwed1 ? BigInt(position.tokensOwed1) : 0n);
-
-  return {
-    token0Fees: totalUncollected0,
-    token1Fees: totalUncollected1,
-  };
+export function subIn256(x: bigint, y: bigint): bigint {
+  return x >= y ? x - y : MAX_UINT256 - y + x + 1n;
 }
