@@ -320,123 +320,6 @@ export class HyperSwapManager extends CLMM {
     throw new Error(`Unknown tick spacing: ${tickSpacing}`);
   }
 
-  getCounterfactualFees(
-    feeGrowthGlobal: bigint,
-    feeGrowthOutsideLower: bigint,
-    feeGrowthOutsideUpper: bigint,
-    feeGrowthInsideLast: bigint,
-    pool: PoolData,
-    liquidity: bigint,
-    tickLower: number,
-    tickUpper: number,
-  ) {
-    let feeGrowthBelow: bigint;
-    if (pool.tick >= tickLower) {
-      feeGrowthBelow = feeGrowthOutsideLower;
-    } else {
-      feeGrowthBelow = subIn256(feeGrowthGlobal, feeGrowthOutsideLower);
-    }
-
-    let feeGrowthAbove: bigint;
-    if (pool.tick < tickUpper) {
-      feeGrowthAbove = feeGrowthOutsideUpper;
-    } else {
-      feeGrowthAbove = subIn256(feeGrowthGlobal, feeGrowthOutsideUpper);
-    }
-
-    const feeGrowthInside = subIn256(
-      subIn256(feeGrowthGlobal, feeGrowthBelow),
-      feeGrowthAbove,
-    );
-
-    return (
-      (subIn256(feeGrowthInside, feeGrowthInsideLast) * liquidity) / 2n ** 128n
-    );
-    // .mul(liquidity).div(BigNumber.from(2).pow(128))
-  }
-
-  // compute current + counterfactual fees for a v3 position
-  async useV3PositionFees(
-    pool: PoolData,
-    positionDetails: PositionInfo,
-  ): Promise<[TokenAmount, TokenAmount]> {
-    /* const { chainId } = usePrivyWallet()
-
-  const poolAddress = useMemo(() => {
-    try {
-      return chainId &&
-        V3_CORE_FACTORY_ADDRESSES[chainId as keyof typeof V3_CORE_FACTORY_ADDRESSES] &&
-        pool &&
-        positionDetails
-        ? computePoolAddress({
-            factoryAddress: V3_CORE_FACTORY_ADDRESSES[chainId as keyof typeof V3_CORE_FACTORY_ADDRESSES] as string,
-            tokenA: pool.token0,
-            tokenB: pool.token1,
-            fee: positionDetails.fee,
-          })
-        : undefined
-    } catch {
-      return undefined
-    }
-  }, [chainId, pool, positionDetails])
-  const poolContract = useV3Pool(poolAddress) */
-
-    // data fetching
-    const feeGrowthGlobal0: bigint | undefined = BigInt(
-      pool.feeGrowthGlobal0X128,
-    ); // useSingleCallResult(poolContract, 'feeGrowthGlobal0X128')?.result?.[0]
-    const feeGrowthGlobal1: bigint | undefined = BigInt(
-      pool.feeGrowthGlobal1X128,
-    ); // useSingleCallResult(poolContract, 'feeGrowthGlobal1X128')?.result?.[0]
-    const {
-      feeGrowthOutside0X128: feeGrowthOutsideLower0,
-      feeGrowthOutside1X128: feeGrowthOutsideLower1,
-    } = await this.getTicks(pool.address, positionDetails.tickLower);
-    // (useSingleCallResult(poolContract, 'ticks', [
-    //  positionDetails?.tickLower,
-    //])?.result ?? {}) as { feeGrowthOutside1X128?: BigNumber }
-    const {
-      feeGrowthOutside0X128: feeGrowthOutsideUpper0,
-      feeGrowthOutside1X128: feeGrowthOutsideUpper1,
-    } = await this.getTicks(pool.address, positionDetails.tickUpper);
-
-    // calculate fees
-    const counterfactualFees0 = this.getCounterfactualFees(
-      feeGrowthGlobal0,
-      BigInt(feeGrowthOutsideLower0),
-      BigInt(feeGrowthOutsideUpper0),
-      BigInt(positionDetails.feeGrowthInside0LastX128),
-      pool,
-      BigInt(positionDetails.liquidity),
-      positionDetails.tickLower,
-      positionDetails.tickUpper,
-    );
-    const counterfactualFees1 = this.getCounterfactualFees(
-      feeGrowthGlobal1,
-      BigInt(feeGrowthOutsideLower1),
-      BigInt(feeGrowthOutsideUpper1),
-      BigInt(positionDetails.feeGrowthInside1LastX128),
-      pool,
-      BigInt(positionDetails.liquidity),
-      positionDetails.tickLower,
-      positionDetails.tickUpper,
-    );
-
-    const tOne = (
-      BigInt(positionDetails.tokensOwed0) + counterfactualFees0
-    ).toString();
-    const tTwo = (
-      BigInt(positionDetails.tokensOwed1) + counterfactualFees1
-    ).toString();
-    return [
-      { ...positionDetails.token0, amount: tOne },
-      {
-        ...positionDetails.token1,
-        amount: tTwo,
-      },
-    ];
-  }
-
   async calculateUncollectedFees(
     position: {
       liquidity: string;
@@ -454,7 +337,6 @@ export class HyperSwapManager extends CLMM {
       feeGrowthGlobal1X128: BigNumberish;
     },
   ) {
-    // Early return for positions with zero liquidity
     if (position.liquidity === "0") {
       return {
         token0Fees: position.tokensOwed0 ? BigInt(position.tokensOwed0) : 0n,
@@ -462,21 +344,19 @@ export class HyperSwapManager extends CLMM {
       };
     }
 
-    // Convert to BigInt
     const liquidity = BigInt(position.liquidity);
     const feeGrowthGlobal0X128 = BigInt(pool.feeGrowthGlobal0X128);
     const feeGrowthGlobal1X128 = BigInt(pool.feeGrowthGlobal1X128);
     const feeGrowthInside0LastX128 = BigInt(position.feeGrowthInside0LastX128);
     const feeGrowthInside1LastX128 = BigInt(position.feeGrowthInside1LastX128);
 
-    // Get tick data
     const tickLower = position.tickLower;
     const tickUpper = position.tickUpper;
     const tickCurrent = pool.tick;
 
     const tickLowerFees = await this.getTicks(pool.address, tickLower);
     const tickHigherFees = await this.getTicks(pool.address, tickUpper);
-    // Get fee growth outside values for the position's tick bounds
+
     const feeGrowthOutsideLower0X128 = BigInt(
       tickLowerFees.feeGrowthOutside0X128,
     );
@@ -490,9 +370,7 @@ export class HyperSwapManager extends CLMM {
       tickHigherFees.feeGrowthOutside1X128,
     );
 
-    // Constants
 
-    // Calculate fee growth below the position's range
     let feeGrowthBelow0X128: bigint;
     let feeGrowthBelow1X128: bigint;
 
@@ -510,7 +388,6 @@ export class HyperSwapManager extends CLMM {
       );
     }
 
-    // Calculate fee growth above the position's range
     let feeGrowthAbove0X128: bigint;
     let feeGrowthAbove1X128: bigint;
 
@@ -528,7 +405,6 @@ export class HyperSwapManager extends CLMM {
       );
     }
 
-    // Calculate the current fee growth inside the position's range
     const feeGrowthInside0X128 = subIn256(
       subIn256(feeGrowthGlobal0X128, feeGrowthBelow0X128),
       feeGrowthAbove0X128,
@@ -538,7 +414,6 @@ export class HyperSwapManager extends CLMM {
       feeGrowthAbove1X128,
     );
 
-    // Calculate fees accrued since last collection
     const feesToken0 =
       (subIn256(feeGrowthInside0X128, feeGrowthInside0LastX128) * liquidity) /
       Q128;
@@ -546,7 +421,6 @@ export class HyperSwapManager extends CLMM {
       (subIn256(feeGrowthInside1X128, feeGrowthInside1LastX128) * liquidity) /
       Q128;
 
-    // Add existing owed fees if they exist
     const totalUncollected0 =
       feesToken0 + (position.tokensOwed0 ? BigInt(position.tokensOwed0) : 0n);
     const totalUncollected1 =

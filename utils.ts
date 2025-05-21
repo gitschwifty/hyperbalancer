@@ -1,12 +1,10 @@
-import { BigNumberish } from "ethers";
-import { PoolData, PositionInfo, TokenAmount } from "./abstractClmm";
+import { PoolData, PositionInfo } from "./abstractClmm";
 
 export const Q128 = 2n ** 128n;
 export const MAX_UINT256 = 2n ** 256n - 1n;
 
 export function prettyPrintPosition(
   position: PositionInfo,
-  poolData: PoolData,
   feeZero: bigint,
   feeOne: bigint,
 ): string {
@@ -37,7 +35,6 @@ export function prettyPrintPosition(
 
   const formattedFees1 = formatTokenAmount(feeOne, position.token1.decimals);
 
-  // Format all the information
   return `
     ╭───────────────────────────────────────────────╮
     │  Position ID: ${position.id.padEnd(34 - position.id.length)}  │
@@ -62,7 +59,7 @@ export function prettyPrintPosition(
 }
 
 function generateRangeVisual(percentage: number): string {
-  const width = 30; // Width of the visual bar
+  const width = 30; 
   const pos = Math.floor((percentage / 100) * width);
 
   let bar = "  [";

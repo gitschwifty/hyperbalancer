@@ -37,7 +37,7 @@ async function main() {
         );
         const fees = await reader.calculateUncollectedFees(pos, pool);
         console.log(
-          prettyPrintPosition(pos, pool, fees.token0Fees, fees.token1Fees),
+          prettyPrintPosition(pos, fees.token0Fees, fees.token1Fees),
         );
 
         const tickSpacing = await reader.getTickSpacingForFee(pos.fee);
