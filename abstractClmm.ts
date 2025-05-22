@@ -133,7 +133,7 @@ export abstract class CLMM {
 
       try {
         const positionData = await this.positionManager.positions(tokenId.toString());
-        if (positionData.liquidity !== "0") {
+        if (positionData.liquidity.toString() !== "0") {
           positions.push(tokenId.toString());
         }
       } catch (error) {

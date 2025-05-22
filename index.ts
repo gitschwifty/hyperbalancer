@@ -27,8 +27,16 @@ async function main() {
   console.log("Initialized");
 
   try {
+    // cache positions by reader/wallet address somehow (data file? seems not DB rly)
+    // also store the last index from balanceOf
+    // only read from new positions in getPosForWallet (i.e. pass in the index to start from)
+    // remove positions from list/file when liq = 0
+    console.time('Get hyperswap positions')
     const positions = await reader.getPositionsForWallet(walletAddress);
+    console.timeEnd('Get hyperswap positions')
+    console.time('Get kittenswap positions')
     const kPositions = await kReader.getPositionsForWallet(walletAddress);
+    console.timeEnd('Get kittenswap positions')
 
     while (true) {
       for (const p of positions) {
@@ -42,7 +50,6 @@ async function main() {
         console.log(prettyPrintPosition(pos, fees.token0Fees, fees.token1Fees));
 
         const tickSpacing = await reader.getTickSpacingForFee(pos.fee);
-        console.log("Tick Spacing for pool:", tickSpacing);
 
         const { tickLower, tickUpper } = calculateOptimalRange(
           pool.tick,
