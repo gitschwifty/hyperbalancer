@@ -34,12 +34,10 @@ export function prettyPrintPosition(
   const formattedFees0 = formatTokenAmount(feeZero, position.token0.decimals);
 
   const formattedFees1 = formatTokenAmount(feeOne, position.token1.decimals);
-  console.log(formattedFees0);
-  console.log(formattedFees1);
 
   return `
     ╭───────────────────────────────────────────────╮
-    │  Position ID: ${position.id.padEnd(35 - position.id.length)}  │
+    │  Position ID: ${position.id}${" ".repeat(32 - position.id.length)}│
     ├───────────────────────────────────────────────┤
     │  ${position.token0.symbol}/${position.token1.symbol} (${feeTier}% fee tier)${" ".repeat(32 - position.token0.symbol.length - position.token1.symbol.length - feeTier.toString().length - 1)}│
     │  Liquidity: ${shortenNumber(position.liquidity)}${" ".repeat(35 - shortenNumber(position.liquidity).length - 1)}│
@@ -49,7 +47,7 @@ export function prettyPrintPosition(
     │    Max (${position.tickUpper}): ${maxPrice.toFixed(9)}${" ".repeat(35 - maxPrice.toFixed(9).length - position.tickUpper.toString().length)}│
     │    Current (${position.currentTick}): ${currentPrice.toFixed(9)}${" ".repeat(31 - currentPrice.toFixed(9).length - position.currentTick.toString().length)}│
     │${" ".repeat(47)}│
-    │  Range Position: ${position.inRange ? "🟢 In Range" : "🔴 Out of Range"}${" ".repeat(23 - (position.inRange ? 5 : 8))}│
+    │  Range Position: ${position.inRange ? "🟢 In Range" : "🔴 Out of Range"}${" ".repeat(23 - (position.inRange ? 5 : 9))}│
     │  ${rangeVisual}${" ".repeat(45 - rangeVisual.length)}│
     │  Position: ${formattedRangePercentage}% through range${" ".repeat(20 - formattedRangePercentage.length)}│
     ├───────────────────────────────────────────────┤
