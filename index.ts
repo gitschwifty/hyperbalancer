@@ -24,7 +24,7 @@ async function main() {
   const reader = new HyperSwapManager(rpcUrl);
   const kReader = new KittenswapManager(rpcUrl);
 
-  console.log("initialized");
+  console.log("Initialized");
 
   try {
     const positions = await reader.getPositionsForWallet(walletAddress);
@@ -32,7 +32,7 @@ async function main() {
 
     while (true) {
       for (const p of positions) {
-        const pos = await reader.getPosition(p.id);
+        const pos = await reader.getPosition(p);
         const pool = await reader.getPoolData(
           pos.token0.address,
           pos.token1.address,
@@ -53,7 +53,7 @@ async function main() {
       }
 
       for (const p of kPositions) {
-        const pos = await kReader.getPosition(p.id);
+        const pos = await kReader.getPosition(p);
         const pool = await kReader.getPoolData(
           pos.token0.address,
           pos.token1.address,
@@ -62,12 +62,11 @@ async function main() {
         const fees = await kReader.calculateUncollectedFees(pos, pool);
         console.log(prettyPrintPosition(pos, fees.token0Fees, fees.token1Fees));
 
-        const tickSpacing = pool.tickSpacing;
-        console.log("Tick Spacing for pool:", tickSpacing);
-
+        // update this to take current range & recalc based off that?
+        // only trigger this for out of range/close to edge
         const { tickLower, tickUpper } = calculateOptimalRange(
           pool.tick,
-          tickSpacing,
+          pool.tickSpacing,
           10,
         );
         console.log("Optimal Range:", { tickLower, tickUpper });

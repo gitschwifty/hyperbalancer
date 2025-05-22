@@ -121,9 +121,9 @@ export abstract class CLMM {
     };
   }
 
-  async getPositionsForWallet(walletAddress: string): Promise<PositionInfo[]> {
+  async getPositionsForWallet(walletAddress: string): Promise<string[]> {
     const balance = await this.positionManager.balanceOf(walletAddress);
-    const positions: PositionInfo[] = [];
+    const positions: string[] = [];
 
     for (let i = 0; i < Number(balance); i++) {
       const tokenId = await this.positionManager.tokenOfOwnerByIndex(
@@ -132,9 +132,9 @@ export abstract class CLMM {
       );
 
       try {
-        const position = await this.getPosition(tokenId.toString());
-        if (position.liquidity !== "0") {
-          positions.push(position);
+        const positionData = await this.positionManager.positions(tokenId.toString());
+        if (positionData.liquidity !== "0") {
+          positions.push(tokenId.toString());
         }
       } catch (error) {
         console.warn(`Error fetching position ${tokenId}: ${error}`);
