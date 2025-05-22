@@ -1,6 +1,7 @@
 import * as dotenv from "dotenv";
 import { HyperSwapManager } from "./hyperswap";
 import { calculateOptimalRange, prettyPrintPosition } from "./utils";
+import { KittenswapManager } from "./kittenSwap";
 
 dotenv.config();
 
@@ -21,11 +22,13 @@ async function main() {
   console.log("Initializing concentrated liquidity reader...");
 
   const reader = new HyperSwapManager(rpcUrl);
+  const kReader = new KittenswapManager(rpcUrl);
 
   console.log("initialized");
 
   try {
     const positions = await reader.getPositionsForWallet(walletAddress);
+    const kPositions = await kReader.getPositionsForWallet(walletAddress);
 
     while (true) {
       for (const p of positions) {
@@ -36,9 +39,7 @@ async function main() {
           pos.fee,
         );
         const fees = await reader.calculateUncollectedFees(pos, pool);
-        console.log(
-          prettyPrintPosition(pos, fees.token0Fees, fees.token1Fees),
-        );
+        console.log(prettyPrintPosition(pos, fees.token0Fees, fees.token1Fees));
 
         const tickSpacing = await reader.getTickSpacingForFee(pos.fee);
         console.log("Tick Spacing for pool:", tickSpacing);
@@ -50,6 +51,28 @@ async function main() {
         );
         console.log("Optimal Range:", { tickLower, tickUpper });
       }
+
+      for (const p of kPositions) {
+        const pos = await kReader.getPosition(p.id);
+        const pool = await kReader.getPoolData(
+          pos.token0.address,
+          pos.token1.address,
+          pos.tickSpacing,
+        );
+        const fees = await kReader.calculateUncollectedFees(pos, pool);
+        console.log(prettyPrintPosition(pos, fees.token0Fees, fees.token1Fees));
+
+        const tickSpacing = pool.tickSpacing;
+        console.log("Tick Spacing for pool:", tickSpacing);
+
+        const { tickLower, tickUpper } = calculateOptimalRange(
+          pool.tick,
+          tickSpacing,
+          10,
+        );
+        console.log("Optimal Range:", { tickLower, tickUpper });
+      }
+
       await sleep(60000);
     }
   } catch (error) {
